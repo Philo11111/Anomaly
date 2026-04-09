@@ -1,0 +1,32 @@
+# Секрети — НІКОЛИ не комітити
+.env
+*.env
+.env.local
+.env.production
+
+# База даних (локальна)
+*.db
+*.sqlite
+*.sqlite3
+
+# Telethon сесія (містить токен авторизації)
+*.session
+*.session-journal
+
+# Логи
+logs/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+env/
+*.egg-info/
+
+# Railway
+.railway/
