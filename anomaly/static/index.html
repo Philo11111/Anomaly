@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Anomaly</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0c1016;
+    --panel: #151b24;
+    --line: #2a3444;
+    --text: #e7edf5;
+    --muted: #8ea0b8;
+    --red: #ff5d73;
+    --yellow: #f5c15d;
+    --green: #3ddc97;
+    --blue: #7aa2ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--line);
+  }
+  h1 { font-size: 18px; margin: 0; letter-spacing: 0.04em; }
+  h1 span { color: var(--muted); font-weight: 500; }
+  .clock { font-variant-numeric: tabular-nums; color: var(--blue); }
+  main { display: grid; grid-template-columns: 340px 1fr; min-height: calc(100vh - 62px); }
+  aside, section { padding: 16px; }
+  aside { border-right: 1px solid var(--line); }
+  h2 { margin: 0 0 10px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .mod { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid #222a36; }
+  .mod div:first-child { flex: 0 0 9.5rem; white-space: nowrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .running { background: var(--green); }
+  .degraded { background: var(--yellow); }
+  .disabled, .idle, .starting { background: var(--muted); }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .score { font-weight: 700; }
+  .red { color: var(--red); }
+  .yellow { color: var(--yellow); }
+  .info { color: var(--muted); }
+  pre {
+    white-space: pre-wrap;
+    font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    margin: 8px 0 0;
+  }
+  a { color: var(--blue); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 600; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  input, select, button {
+    background: #0f141c;
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 10px;
+  }
+  button { cursor: pointer; }
+  .tabs button.active { border-color: var(--blue); color: var(--blue); }
+  @media (max-width: 960px) {
+    main { grid-template-columns: 1fr; }
+    aside { border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>ANOMALY <span>exploit monitor</span></h1>
+  <div class="clock" id="clock">—</div>
+</header>
+<main>
+  <aside>
+    <h2>Модулі</h2>
+    <div id="modules"></div>
+  </aside>
+  <section>
+    <div class="toolbar">
+      <button id="tab-alerts" class="active">Події</button>
+      <button id="tab-markets">OI / funding</button>
+      <label><input id="silent" type="checkbox" checked /> показувати yellow</label>
+      <label><input id="info" type="checkbox" /> показувати info</label>
+      <input id="q" placeholder="тікер або біржа" />
+    </div>
+    <div id="alerts"></div>
+    <div id="markets" hidden>
+      <div class="tabs toolbar" id="venue-tabs"></div>
+      <div style="overflow:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Символ</th><th>Mark</th><th>Index</th><th>Funding</th><th>Період</th><th>OI</th><th>Обсяг 24г</th><th>Оновлено, Kyiv</th>
+            </tr>
+          </thead>
+          <tbody id="market-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+<script>
+const TOKEN = "__TOKEN__";
+const qs = TOKEN ? ("?token=" + encodeURIComponent(TOKEN)) : "";
+const headers = TOKEN ? {Authorization: "Bearer " + TOKEN} : {};
+let alerts = [];
+let markets = {};
+let venue = "";
+const clock = document.getElementById("clock");
+function kyiv(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  return new Intl.DateTimeFormat("uk-UA", {
+    timeZone: "Europe/Kyiv",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    day: "2-digit", month: "2-digit"
+  }).format(d);
+}
+setInterval(() => { clock.textContent = kyiv(new Date()) + " Kyiv"; }, 1000);
+clock.textContent = kyiv(new Date()) + " Kyiv";
+
+function money(v) {
+  if (v === null || v === undefined || Number.isNaN(v)) return "—";
+  const n = Number(v);
+  const a = Math.abs(n);
+  if (a >= 1e9) return "$" + (n/1e9).toFixed(2) + "B";
+  if (a >= 1e6) return "$" + (n/1e6).toFixed(2) + "M";
+  if (a >= 1e3) return "$" + (n/1e3).toFixed(1) + "K";
+  return "$" + n.toFixed(0);
+}
+function num(v) {
+  if (v === null || v === undefined) return "—";
+  const n = Number(v);
+  if (n >= 1000) return n.toLocaleString("uk-UA", {maximumFractionDigits: 2});
+  return n.toPrecision(6);
+}
+
+async function load() {
+  const [a, s, m] = await Promise.all([
+    fetch("/api/alerts" + qs, {headers}).then(r => r.json()),
+    fetch("/api/status" + qs, {headers}).then(r => r.json()),
+    fetch("/api/markets" + qs, {headers}).then(r => r.json()),
+  ]);
+  alerts = a;
+  markets = m.venues || {};
+  renderModules(s.modules || {});
+  renderAlerts();
+  renderVenueTabs();
+  renderMarkets();
+}
+
+function renderModules(modules) {
+  const root = document.getElementById("modules");
+  root.replaceChildren();
+  const names = Object.keys(modules).sort();
+  if (!names.length) {
+    root.textContent = "Модулі ще стартують…";
+    return;
+  }
+  for (const name of names) {
+    const item = modules[name];
+    const row = document.createElement("div");
+    row.className = "mod";
+    const left = document.createElement("div");
+    const dot = document.createElement("i");
+    dot.className = "dot " + (item.status || "idle");
+    left.append(dot, document.createTextNode(name));
+    const right = document.createElement("div");
+    right.style.color = "var(--muted)";
+    right.textContent = item.status + (item.detail ? " · " + item.detail.slice(0, 80) : "");
+    row.append(left, right);
+    root.append(row);
+  }
+}
+
+function renderAlerts() {
+  const showYellow = document.getElementById("silent").checked;
+  const showInfo = document.getElementById("info").checked;
+  const q = document.getElementById("q").value.trim().toUpperCase();
+  const root = document.getElementById("alerts");
+  root.replaceChildren();
+  const rows = alerts.filter(a => {
+    if (a.level === "info" && !showInfo) return false;
+    if (a.level === "yellow" && !showYellow) return false;
+    if (!q) return true;
+    return (a.ticker || "").includes(q) || (a.text || "").toUpperCase().includes(q) || (a.sources || []).join(" ").toUpperCase().includes(q);
+  });
+  if (!rows.length) {
+    const empty = document.createElement("div");
+    empty.className = "card";
+    empty.textContent = "Немає подій за цим фільтром. Червоні та жовті з’являться тут, щойно детектор їх побачить.";
+    root.append(empty);
+    return;
+  }
+  for (const alert of rows) {
+    const card = document.createElement("article");
+    card.className = "card";
+    const head = document.createElement("div");
+    const score = document.createElement("span");
+    score.className = "score " + alert.level;
+    score.textContent = alert.level.toUpperCase() + " " + alert.score + "/100";
+    head.append(score, document.createTextNode("  " + (alert.ticker || "—") + " · " + kyiv(alert.updated_at)));
+    const pre = document.createElement("pre");
+    pre.textContent = alert.text || alert.summary || "";
+    card.append(head, pre);
+    const links = alert.links || {};
+    for (const [label, url] of Object.entries(links)) {
+      if (!url) continue;
+      const a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noreferrer";
+      a.textContent = label;
+      a.style.marginRight = "10px";
+      card.append(a);
+    }
+    root.append(card);
+  }
+}
+
+function renderVenueTabs() {
+  const root = document.getElementById("venue-tabs");
+  const names = Object.keys(markets).sort();
+  if (!names.length) {
+    root.textContent = "Ринки ще не відповіли.";
+    return;
+  }
+  if (!venue || !names.includes(venue)) venue = names.includes("hyperliquid") ? "hyperliquid" : names[0];
+  root.replaceChildren();
+  for (const name of names) {
+    const button = document.createElement("button");
+    button.textContent = name + " (" + (markets[name] || []).length + ")";
+    if (name === venue) button.className = "active";
+    button.onclick = () => { venue = name; renderVenueTabs(); renderMarkets(); };
+    root.append(button);
+  }
+}
+
+function renderMarkets() {
+  const body = document.getElementById("market-body");
+  body.replaceChildren();
+  const q = document.getElementById("q").value.trim().toUpperCase();
+  const rows = (markets[venue] || []).filter(row => !q || row.symbol.toUpperCase().includes(q) || row.base.toUpperCase().includes(q)).slice(0, 80);
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    const cells = [
+      row.symbol,
+      num(row.mark),
+      num(row.index),
+      row.funding === null || row.funding === undefined ? "—" : (Number(row.funding) * 100).toFixed(4) + "%",
+      row.funding_hours ? row.funding_hours + "h" : "—",
+      money(row.oi_usd),
+      money(row.volume_usd),
+      row.updated_at ? kyiv(row.updated_at) : "—",
+    ];
+    cells.forEach((value, index) => {
+      const td = document.createElement("td");
+      td.textContent = value;
+      tr.append(td);
+    });
+    body.append(tr);
+  }
+}
+
+document.getElementById("tab-alerts").onclick = () => {
+  document.getElementById("alerts").hidden = false;
+  document.getElementById("markets").hidden = true;
+  document.getElementById("tab-alerts").className = "active";
+  document.getElementById("tab-markets").className = "";
+};
+document.getElementById("tab-markets").onclick = () => {
+  document.getElementById("alerts").hidden = true;
+  document.getElementById("markets").hidden = false;
+  document.getElementById("tab-markets").className = "active";
+  document.getElementById("tab-alerts").className = "";
+  renderMarkets();
+};
+["silent", "info", "q"].forEach(id => {
+  document.getElementById(id).addEventListener("input", () => { renderAlerts(); renderMarkets(); });
+});
+
+function connect() {
+  const stream = new EventSource("/api/stream" + qs);
+  stream.addEventListener("alert", (ev) => {
+    const alert = JSON.parse(ev.data);
+    alerts = [alert, ...alerts.filter(item => item.id !== alert.id)].slice(0, 150);
+    renderAlerts();
+  });
+  stream.addEventListener("status", () => load().catch(() => {}));
+  stream.onerror = () => { stream.close(); setTimeout(connect, 3000); };
+}
+load().catch((err) => { document.getElementById("alerts").textContent = String(err); });
+connect();
+setInterval(() => load().catch(() => {}), 15000);
+</script>
+</body>
+</html>

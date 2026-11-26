@@ -1,0 +1,63 @@
+# Contracts, bridges and signer keys the detector watches.
+# CoinGecko ids are optional; the registry fills missing contracts every 6h.
+# Telegram channels are resolved once, only after a Telethon session is configured.
+
+telegram_channels:
+  - "@investigations"
+  - "@lookonchainchannel"
+  - "@onchainlens"
+  - "@MistTrack_Alert"
+  - "@wublockchainenglish"
+  - "@TreeNewsFeed"
+  - "@BWEnews"
+  - "@binance_announcements"
+  - "@okxannouncements"
+  - "@bybit_announcements"
+  - "@bitget_announcements"
+  - "@hyperliquid_announcements"
+
+tokens:
+  - ticker: ACE
+    name: Fusionist
+    coingecko_id: endurance
+    contracts:
+      - chain: bsc
+        address: "0xc27A719105A987b4c34116223CAE8bd8F4B5def4"
+        decimals: 18
+    bridges:
+      - chain: bsc
+        address: "0x9d0698D9a6D01f1409AC56c5aDF62547b0055915"
+        token: "0xc27A719105A987b4c34116223CAE8bd8F4B5def4"
+        label: RemoteTokenBridge
+    signers:
+      - chain: bsc
+        address: "0x3f1045210a80a375d6c7cbad57800d5e8f30f34e"
+        role: minter
+        label: ACE bridge minter
+
+  - ticker: SAND
+    name: The Sandbox
+    coingecko_id: the-sandbox
+    contracts:
+      - chain: base
+        address: "0xac531Eb26Ca1d21b85126De8FB87E80E09002DcF"
+        decimals: 18
+      - chain: bsc
+        address: "0xac531Eb26Ca1d21b85126De8FB87E80E09002DcF"
+        decimals: 18
+
+  - ticker: BTC
+    name: Bitcoin
+    coingecko_id: bitcoin
+  - ticker: ETH
+    name: Ethereum
+    coingecko_id: ethereum
+  - ticker: SOL
+    name: Solana
+    coingecko_id: solana
+  - ticker: BNB
+    name: BNB
+    coingecko_id: binancecoin
+  - ticker: HYPE
+    name: Hyperliquid
+    coingecko_id: hyperliquid

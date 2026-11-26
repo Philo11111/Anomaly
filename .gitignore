@@ -1,23 +1,20 @@
-# Секрети — НІКОЛИ не комітити
 .env
 *.env
+!.env.example
 .env.local
 .env.production
 
-# База даних (локальна)
+data/
 *.db
 *.sqlite
 *.sqlite3
 
-# Telethon сесія (містить токен авторизації)
 *.session
 *.session-journal
 
-# Логи
 logs/
 *.log
 
-# Python
 __pycache__/
 *.pyc
 *.pyo
@@ -27,6 +24,7 @@ venv/
 .venv/
 env/
 *.egg-info/
+.pytest_cache/
+.mypy_cache/
 
-# Railway
 .railway/
