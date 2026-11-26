@@ -1,0 +1,17 @@
+[Unit]
+Description=Anomaly exploit monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=anomaly
+WorkingDirectory=/opt/anomaly
+EnvironmentFile=-/opt/anomaly/.env
+ExecStart=/opt/anomaly/.venv/bin/python -m anomaly
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

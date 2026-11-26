@@ -1,0 +1,9 @@
+[project]
+name = "anomaly"
+version = "1.0.0"
+description = "On-chain exploit and perp anomaly monitor"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
